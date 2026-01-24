@@ -2,13 +2,13 @@
 
 # 检查系统启动方式（BIOS/UEFI）
 if [ -d /sys/firmware/efi ]; then
-    # UEFI 启动 - 使用 7.20.6 img
+    # UEFI 启动
     IMG_URL="https://github.com/qing48674431-cmd/qing-ros-images/releases/download/v7.20.6/chr-7.20.6.img"
-    echo "检测到 UEFI 启动方式，使用 UEFI 镜像包 (v7.20.6)"
+    echo "检测到 UEFI 启动方式，使用 UEFI 镜像包"
 else
-    # BIOS 启动 - 使用 7.20.6 legacy-bios img
+    # BIOS 启动
     IMG_URL="https://github.com/qing48674431-cmd/qing-ros-images/releases/download/v7.20.6/chr-7.20.6-legacy-bios.img"
-    echo "检测到 BIOS 启动方式，使用 legacy 镜像包 (v7.20.6)"
+    echo "检测到 BIOS 启动方式，使用 legacy 镜像包"
 fi
 
 # 下载对应的镜像
