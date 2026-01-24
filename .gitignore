@@ -1,0 +1,26 @@
+# Configuration files with sensitive data
+config.conf
+
+# Temporary files
+*.tmp
+*.log
+/tmp/
+
+# Downloaded images
+*.img
+*.img.gz
+routeros.*
+
+# Network config backups
+network_config.txt
+
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Editor files
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
