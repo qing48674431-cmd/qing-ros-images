@@ -134,7 +134,9 @@ fi
 if [[ ! -f "install-ros.sh" ]]; then
     echo ""
     echo -e "${GREEN}Downloading installation script...${NC}"
-    wget -O install-ros.sh https://raw.githubusercontent.com/qing48674431-cmd/qing-ros-images/main/install-ros.sh
+    # Try to use a configurable URL or default to GitHub
+    SCRIPT_URL="${INSTALL_SCRIPT_URL:-https://raw.githubusercontent.com/qing48674431-cmd/qing-ros-images/main/install-ros.sh}"
+    wget -O install-ros.sh "$SCRIPT_URL"
     chmod +x install-ros.sh
 fi
 

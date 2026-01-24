@@ -179,7 +179,9 @@ check_requirements() {
     for cmd in "${required_cmds[@]}"; do
         if ! command -v "$cmd" &> /dev/null; then
             log_error "Required command '$cmd' not found!"
-            log_info "Please install it first. For Debian/Ubuntu: apt-get install $cmd"
+            log_info "Please install required packages first."
+            log_info "  Debian/Ubuntu: apt-get install wget gzip coreutils"
+            log_info "  CentOS/RHEL: yum install wget gzip coreutils"
             exit 1
         fi
     done
@@ -244,7 +246,6 @@ build_download_url() {
     
     # MikroTik RouterOS download URL pattern
     # Format: https://download.mikrotik.com/routeros/VERSION/chr-VERSION.img.gz
-    local version_major=$(echo "$ROS_VERSION" | cut -d. -f1)
     
     case "$ROS_ARCH" in
         x86|x86_64)
@@ -324,8 +325,11 @@ perform_dd_installation() {
     
     # Unmount all partitions on target disk
     for partition in $(lsblk -ln -o NAME "$TARGET_DISK" | tail -n +2); do
-        if mountpoint -q "/dev/$partition" 2>/dev/null; then
-            umount "/dev/$partition" 2>/dev/null || true
+        local partition_path="/dev/$partition"
+        # Check if mounted and unmount
+        if grep -q "^$partition_path " /proc/mounts 2>/dev/null; then
+            log_info "Unmounting $partition_path..."
+            umount "$partition_path" 2>/dev/null || true
         fi
     done
     
