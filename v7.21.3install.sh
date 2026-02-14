@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==================================================
-# RouterOS v7.20.6 GitHub 一键重装脚本 (通用版)
+# RouterOS v7.21.3 GitHub 一键重装脚本 (通用版)
 # 源仓库: qing48674431-cmd/qing-ros-images
 # ==================================================
 
@@ -10,16 +10,16 @@ ROS_PASSWORD="Admin112233"
 
 # --- 2. 环境检测与镜像匹配 ---
 GITHUB_REPO="qing48674431-cmd/qing-ros-images"
-TAG="v7.20.6"
+TAG="v7.21.3"
 
 if [ -d /sys/firmware/efi ]; then
     echo "环境检测: [UEFI 模式]"
     # UEFI 使用标准包
-    IMG_URL="https://github.com/${GITHUB_REPO}/releases/download/${TAG}/chr-7.20.6.img"
+    IMG_URL="https://github.com/${GITHUB_REPO}/releases/download/${TAG}/chr-7.21.3.img"
 else
     echo "环境检测: [BIOS 模式]"
     # BIOS 使用 Legacy 专用包
-    IMG_URL="https://github.com/${GITHUB_REPO}/releases/download/${TAG}/chr-7.20.6-legacy-bios.img"
+    IMG_URL="https://github.com/${GITHUB_REPO}/releases/download/${TAG}/chr-7.21.3-legacy-bios.img"
 fi
 
 # --- 3. 下载镜像 ---
@@ -80,7 +80,7 @@ if [ -z "$FOUND_PART" ]; then
     exit 1
 fi
 
-# 写入 autorun.scr
+# 写入 autorun.scr（含 Container 启用：首次启动后需冷关机再开机才生效）
 cat > /mnt/ros_tmp/rw/autorun.scr <<EOF
 /user set [find name=admin] password="$ROS_PASSWORD"
 /interface ethernet set [ find default-name=ether1 ] name=wan
@@ -89,6 +89,7 @@ cat > /mnt/ros_tmp/rw/autorun.scr <<EOF
 /ip service set telnet disabled=yes
 /ip service set ssh disabled=no port=22
 /ip service set winbox disabled=no
+/system device-mode update container=yes
 EOF
 
 echo "配置注入成功！(挂载分区: $FOUND_PART)"
@@ -103,6 +104,7 @@ if [ -z "$STORAGE" ]; then echo "Error: 找不到物理硬盘"; exit 1; fi
 echo "---------------------------------------------"
 echo "即将写入目标硬盘: /dev/$STORAGE"
 echo "SSH 密码将重置为: $ROS_PASSWORD"
+echo "已注入: device-mode container=yes (首次启动后生效需冷重启)"
 echo "---------------------------------------------"
 echo "正在写入 (请勿断电)..."
 
@@ -110,6 +112,11 @@ dd if=/tmp/chr.img of=/dev/"$STORAGE" bs=4M oflag=sync status=progress
 
 # --- 7. 重启 ---
 echo "安装完成！3秒后重启系统..."
+echo ""
+echo "【Container 说明】首次启动后 ROS 会执行 device-mode container=yes。"
+echo "  若需 WinBox 里出现 Container，请在首次启动后 5 分钟内做一次「冷关机」再开机"
+echo "  (控制面板/宿主机: 强制关机/断电 再开机，不要用 ROS 菜单里的 Reboot)。"
+echo ""
 sleep 3
 echo 1 > /proc/sys/kernel/sysrq
 echo b > /proc/sysrq-trigger
