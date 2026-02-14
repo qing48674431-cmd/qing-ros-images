@@ -1,0 +1,27 @@
+# RouterOS DD Installation Configuration
+# Copy this file to config.conf and modify as needed
+# Then source it before running the script:
+#   source config.conf && bash install-ros.sh
+
+# RouterOS Version
+# Find available versions at: https://mikrotik.com/download/archive
+ROS_VERSION=7.12.1
+
+# Architecture
+# Options: x86, x86_64, arm, arm64
+# Set to 'auto' for automatic detection
+ROS_ARCH=auto
+
+# Target Disk
+# WARNING: All data on this disk will be destroyed!
+# Common values: /dev/vda, /dev/sda, /dev/nvme0n1
+TARGET_DISK=/dev/vda
+
+# Custom Download URL (optional)
+# If specified, this URL will be used instead of the default MikroTik download URL
+# DOWNLOAD_URL=https://your-mirror.com/routeros.img.gz
+
+# Force Mode
+# Set to 1 to skip all confirmation prompts (dangerous!)
+# Only use this in automated environments where you're certain of the configuration
+FORCE_MODE=0
