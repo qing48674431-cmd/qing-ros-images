@@ -1,6 +1,6 @@
 #!/bin/bash
 # ==================================================
-# RouterOS v7.20.6 GitHub 一键重装脚本 (通用版)
+# RouterOS v7.21.3 GitHub 一键重装脚本 (通用版)
 # 源仓库: qing48674431-cmd/qing-ros-images
 # ==================================================
 
@@ -10,16 +10,16 @@ ROS_PASSWORD="Admin112233"
 
 # --- 2. 环境检测与镜像匹配 ---
 GITHUB_REPO="qing48674431-cmd/qing-ros-images"
-TAG="v7.20.6"
+TAG="v7.21.3"
 
 if [ -d /sys/firmware/efi ]; then
     echo "环境检测: [UEFI 模式]"
     # UEFI 使用标准包
-    IMG_URL="https://github.com/${GITHUB_REPO}/releases/download/${TAG}/chr-7.20.6.img"
+    IMG_URL="https://github.com/${GITHUB_REPO}/releases/download/${TAG}/chr-7.21.3.img"
 else
     echo "环境检测: [BIOS 模式]"
     # BIOS 使用 Legacy 专用包
-    IMG_URL="https://github.com/${GITHUB_REPO}/releases/download/${TAG}/chr-7.20.6-legacy-bios.img"
+    IMG_URL="https://github.com/${GITHUB_REPO}/releases/download/${TAG}/chr-7.21.3-legacy-bios.img"
 fi
 
 # --- 3. 下载镜像 ---
