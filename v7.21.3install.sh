@@ -71,6 +71,7 @@ cat > /mnt/ros_tmp/rw/autorun.scr <<EOF
 /ip service set telnet disabled=yes
 /ip service set ssh disabled=no port=22
 /ip service set winbox disabled=no
+set telnet disabled=yes
 /system device-mode update container=yes
 EOF
 sync
