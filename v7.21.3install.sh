@@ -1,52 +1,67 @@
 #!/bin/bash
-# ============================================================
-# RouterOS 7.21.3 一键安装脚本
-# 源: https://github.com/qing48674431-cmd/qing-ros-images/releases/tag/v7.21.3
-# 用法: bash install-ros-onekey-v7.21.3.sh [本地镜像路径]
-#       无参数则从 Releases 下载；有参数则用本地已解压的 .img，跳过下载
-# ============================================================
+# ==================================================
+# RouterOS v7.20.6 GitHub 一键重装脚本 (通用版)
+# 源仓库: qing48674431-cmd/qing-ros-images
+# ==================================================
 
-set -e
+# --- 1. 用户配置区 ---
+# 设置你的 ROS 系统密码 (建议修改这里)
+ROS_PASSWORD="Admin112233" 
+
+# --- 2. 环境检测与镜像匹配 ---
 GITHUB_REPO="qing48674431-cmd/qing-ros-images"
-TAG="v7.21.3"
-VERSION="7.21.3"
-ROS_PASSWORD="${ROS_PASSWORD:-Admin112233}"
-IMG_PATH="/tmp/chr.img"
+TAG="v7.20.6"
 
-# --- 1. 镜像来源：本地已有或从 Releases 下载 ---
-if [ -n "$1" ] && [ -f "$1" ]; then
-    echo "使用本地镜像: $1"
-    cp -f "$1" "$IMG_PATH"
-elif [ -n "$LOCAL_CHR_IMG" ] && [ -f "$LOCAL_CHR_IMG" ]; then
-    echo "使用本地镜像 (LOCAL_CHR_IMG): $LOCAL_CHR_IMG"
-    cp -f "$LOCAL_CHR_IMG" "$IMG_PATH"
+if [ -d /sys/firmware/efi ]; then
+    echo "环境检测: [UEFI 模式]"
+    # UEFI 使用标准包
+    IMG_URL="https://github.com/${GITHUB_REPO}/releases/download/${TAG}/chr-7.21.3.img"
 else
-    if [ -d /sys/firmware/efi ]; then
-        echo "环境检测: [UEFI 模式]"
-        IMG_URL="https://github.com/${GITHUB_REPO}/releases/download/${TAG}/chr-${VERSION}.img"
-    else
-        echo "环境检测: [BIOS 模式]"
-        IMG_URL="https://github.com/${GITHUB_REPO}/releases/download/${TAG}/chr-${VERSION}-legacy-bios.img"
-    fi
-    echo "正在从 GitHub 下载镜像: $IMG_URL"
-    curl -L -f -o "$IMG_PATH" "$IMG_URL" --connect-timeout 20 --retry 3
+    echo "环境检测: [BIOS 模式]"
+    # BIOS 使用 Legacy 专用包
+    IMG_URL="https://github.com/${GITHUB_REPO}/releases/download/${TAG}/chr-7.21.3-legacy-bios.img"
 fi
 
-# --- 2. 网络信息 ---
+# --- 3. 下载镜像 ---
+echo "正在从 GitHub 下载镜像..."
+echo "下载地址: $IMG_URL"
+
+# 使用 curl 下载，-L 跟随跳转 (GitHub 需要)，-f 失败报错
+curl -L -f -o /tmp/chr.img "$IMG_URL" --connect-timeout 20 --retry 3
+
+# 下载检测
+if [ $? -ne 0 ]; then
+    echo "Error: 下载失败！"
+    echo "请检查服务器是否能访问 GitHub (国外源)，或 DNS 配置。"
+    exit 1
+fi
+
+# --- 4. 备份当前网络信息 ---
+# 获取当前IP和网关 (防止安装后失联)
 ETH=$(ip route show default | sed -n 's/.* dev \([^\ ]*\) .*/\1/p' | head -n 1)
 ADDRESS=$(ip addr show "$ETH" | grep global | awk '{print $2}' | head -n 1)
 GATEWAY=$(ip route list | grep default | awk '{print $3}' | head -n 1)
+
 if [ -z "$ADDRESS" ] || [ -z "$GATEWAY" ]; then
-    echo "Error: 无法获取 IP 或网关，脚本终止。"
+    echo "Error: 无法自动获取 IP 或网关，脚本终止以防失联。"
     exit 1
 fi
-echo "保留网络: IP=$ADDRESS 网关=$GATEWAY"
 
-# --- 3. 注入配置到镜像 ---
-echo "正在注入配置..."
+echo "保留网络配置: IP=$ADDRESS | 网关=$GATEWAY"
+
+# --- 5. 离线注入配置 (losetup 方式) ---
+echo "正在注入配置到镜像..."
 mkdir -p /mnt/ros_tmp
-LOOPDEV=$(losetup -f --show -P "$IMG_PATH")
+
+# 挂载镜像 (使用 -P 自动识别分区)
+LOOPDEV=$(losetup -f --show -P /tmp/chr.img)
+if [ -z "$LOOPDEV" ]; then
+    echo "Error: losetup 挂载失败 (可能是内核版本过低不支持 -P 参数)"
+    exit 1
+fi
 sleep 1
+
+# 寻找包含 rw 目录的分区 (通常是第二个分区)
 FOUND_PART=""
 for part in "${LOOPDEV}"p{1..5} "${LOOPDEV}"{1..5}; do
     [ -e "$part" ] || continue
@@ -54,15 +69,18 @@ for part in "${LOOPDEV}"p{1..5} "${LOOPDEV}"{1..5}; do
     if [ -d /mnt/ros_tmp/rw ]; then
         FOUND_PART="$part"
         break
+    else
+        umount /mnt/ros_tmp 2>/dev/null
     fi
-    umount /mnt/ros_tmp 2>/dev/null
 done
+
 if [ -z "$FOUND_PART" ]; then
-    echo "Error: 镜像中未找到 rw 目录。"
+    echo "Error: 无法在镜像中找到 rw 配置目录，注入失败。"
     losetup -d "$LOOPDEV"
     exit 1
 fi
 
+# 写入 autorun.scr
 cat > /mnt/ros_tmp/rw/autorun.scr <<EOF
 /user set [find name=admin] password="$ROS_PASSWORD"
 /interface ethernet set [ find default-name=ether1 ] name=wan
@@ -71,31 +89,27 @@ cat > /mnt/ros_tmp/rw/autorun.scr <<EOF
 /ip service set telnet disabled=yes
 /ip service set ssh disabled=no port=22
 /ip service set winbox disabled=no
-set telnet disabled=yes
-/system device-mode update container=yes
 EOF
+
+echo "配置注入成功！(挂载分区: $FOUND_PART)"
 sync
 umount /mnt/ros_tmp
 losetup -d "$LOOPDEV"
-echo "配置注入完成。"
 
-# --- 4. 写盘 ---
+# --- 6. 写入硬盘 ---
 STORAGE=$(lsblk -dn -o NAME,TYPE | awk '$2=="disk"{print $1; exit}')
-if [ -z "$STORAGE" ]; then
-    echo "Error: 未找到物理硬盘。"
-    exit 1
-fi
-echo "---------------------------------------------"
-echo "目标硬盘: /dev/$STORAGE | 密码: $ROS_PASSWORD"
-echo "已注入 device-mode container=yes (首次启动后需冷重启生效)"
-echo "---------------------------------------------"
-echo "正在写入，请勿断电..."
-dd if="$IMG_PATH" of=/dev/"$STORAGE" bs=4M oflag=sync status=progress
+if [ -z "$STORAGE" ]; then echo "Error: 找不到物理硬盘"; exit 1; fi
 
-# --- 5. 重启 ---
-echo "安装完成，3 秒后重启..."
-echo "【Container】首次启动后 5 分钟内请做一次「冷关机」再开机，WinBox 里才会有 Container。"
+echo "---------------------------------------------"
+echo "即将写入目标硬盘: /dev/$STORAGE"
+echo "SSH 密码将重置为: $ROS_PASSWORD"
+echo "---------------------------------------------"
+echo "正在写入 (请勿断电)..."
+
+dd if=/tmp/chr.img of=/dev/"$STORAGE" bs=4M oflag=sync status=progress
+
+# --- 7. 重启 ---
+echo "安装完成！3秒后重启系统..."
 sleep 3
-echo 1 > /proc/sys/kernel/sysrq 2>/dev/null || true
-echo b > /proc/sysrq-trigger 2>/dev/null || true
-reboot -f 2>/dev/null || true
+echo 1 > /proc/sys/kernel/sysrq
+echo b > /proc/sysrq-trigger
